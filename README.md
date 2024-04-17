@@ -1,1 +1,2 @@
-# chalmers_shared_micromobility_bigdata_solutions
+# Digital solutions for sustainable planning and management of shared micromobility using Big Data
+
