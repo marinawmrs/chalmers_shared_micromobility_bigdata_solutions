@@ -1,4 +1,4 @@
-/data/data_raw.csv
+/policy_analysis/data/data_raw.csv
 /policy_analysis/.ipynb_checkpoints/
 
 .idea/
@@ -52,3 +52,4 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
