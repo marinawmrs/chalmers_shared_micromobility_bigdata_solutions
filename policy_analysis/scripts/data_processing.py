@@ -1,7 +1,14 @@
 import pandas as pd
+import datetime as dt
 
 
 def parse_data(df):
+    """
+    Parse and preprocess the input DataFrame containing trip data.
+
+    :param df: DataFrame containing trip data.
+    :return: Preprocessed DataFrame.
+    """
     df = df.rename(columns={'distance': 'escooter_distance', 'transit_Time': 'transit_time',
                             'transit_total_duration': 'transit_totaltime', 'transit_walkTime': 'transit_walkdistance',
                             'car_duration': 'car_time', 'carDistance': 'car_distance', 'walk_duration': 'walk_time',
@@ -25,6 +32,7 @@ def parse_data(df):
     df['Month'] = df['o_time'].dt.month
     df['year'] = df['o_time'].dt.year
     df['Date'] = df['o_time'].dt.day
+    df['hour'] = df['o_time'].dt.hour
     df['isodate'] = df['o_time'].dt.normalize()
 
     df['escooter_time'] = df.d_time - df.o_time
@@ -39,9 +47,11 @@ def parse_data(df):
 
 def clean_data(df_range, city_coordinates):
     """
-    Adapted cleaning from Omkar Parishwad
-    :param df_range:
-    :return:
+    Clean the input DataFrame containing trip data based on specified criteria. Adapted from Omkar Parishwad.
+
+    :param df_range: DataFrame containing trip data.
+    :param city_coordinates: Tuple containing city coordinates in the format (north, south, east, west).
+    :return: Cleaned DataFrame.
     """
     print('#Datapoints - total: ' + str(df_range.shape[0]))
 
@@ -69,21 +79,41 @@ def clean_data(df_range, city_coordinates):
     return df_city
 
 
-def missing_data_hours(df, maxdays):
+def missing_data_hours(df, before_start_date, before_end_date, after_start_date, after_end_date):
+    """
+    Calculate the number of missing data hours per day within specified date ranges.
+
+    :param df: DataFrame containing trip data.
+    :param before_start_date: Start date of the "before" period.
+    :param before_end_date: End date of the "before" period.
+    :param after_start_date: Start date of the "after" period.
+    :param after_end_date: End date of the "after" period.
+    :return: DataFrame containing the number of missing data hours per day.
+    """
+    # get all dates within the range
+    date_ranges = [[before_start_date, before_end_date], [after_start_date, after_end_date]]
+    dates = []
+    for i in date_ranges:
+        temp = i[0]
+        while temp <= i[1]:
+            dates.append(temp.isoformat())
+            temp += dt.timedelta(days=1)
+
+    # count number of hours per day where no data was recorded
     missing = df.groupby(['isodate', 'hour']).size().reset_index()
     missing['date_hour'] = missing['isodate'].astype(str) + '-' + missing['hour'].astype(str)
+    missing_hour = pd.DataFrame(columns=['date', 'hours'])
 
-    # change to datetime range first to last day in month/timeframes
-    for i in range(1, maxdays + 1):
-        curr_date = missing[missing['Date'] == i]
+    for i in dates:
+        curr_date = missing[missing['isodate'] == i]
+        hours = 0
         for j in range(0, 24):
             if curr_date[curr_date['hour'] == j].empty:
-                list_row = [i, j, 0, str(i) + '-' + str(j)]
-                missing.loc[len(missing)] = list_row
+                hours+=1
+        missing_hour.loc[len(missing_hour.index)] = [i, hours]
 
-    missing = missing[missing[0] < 1].sort_values(by=['date_hour']).groupby(
-        'Date').size().to_frame().reset_index().rename(columns={0: '#Hours without data'})
-    return missing
+    missing_hour['date'] = missing_hour['date'].astype('str')
+    return missing_hour
 
 
 def enrich_data(df):

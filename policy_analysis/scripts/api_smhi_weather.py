@@ -11,6 +11,15 @@ api_url = 'https://opendata-download-metobs.smhi.se/api/version/latest/parameter
 
 
 def get_available_stations(params, data_mid_lat, data_mid_lon):
+    """
+    Get available stations within a radius of 30km from the data's midpoint
+    that contain all specified parameters.
+
+    :param params: List of parameters.
+    :param data_mid_lat: Latitude of the data's midpoint.
+    :param data_mid_lon: Longitude of the data's midpoint.
+    :return: List of dictionaries containing information about available stations.
+    """
     union_station = []
     for par in params:
         resp = requests.get(api_url + str(par) + '.json').json()
@@ -34,6 +43,14 @@ def get_available_stations(params, data_mid_lat, data_mid_lon):
 
 
 def map_stations(stations, data_mid_lat, data_mid_lon):
+    """
+    Create a scattermapbox plot of stations.
+
+    :param stations: List of dictionaries containing station information.
+    :param data_mid_lat: Latitude of the data's midpoint.
+    :param data_mid_lon: Longitude of the data's midpoint.
+    :return: None
+    """
     fig = go.Figure()
 
     for s in stations:
@@ -56,6 +73,15 @@ def map_stations(stations, data_mid_lat, data_mid_lon):
 
 
 def fetch_weather_data(station_key, params, start_date, end_date):
+    """
+    Fetch weather data from the API for the specified station and parameters within the specified date range.
+
+    :param station_key: Key of the weather station.
+    :param params: List of parameter IDs.
+    :param start_date: Start date of the date range (inclusive).
+    :param end_date: End date of the date range (inclusive).
+    :return: DataFrame containing weather data.
+    """
     date_regex = re.compile('^\d{4}-([0][1-9]|1[0-2])-([0][1-9]|[1-2]\d|3[01])$')
     weather_arr = []
     for p in params:
@@ -83,23 +109,30 @@ def fetch_weather_data(station_key, params, start_date, end_date):
 
 
 def plot_weather(df_weather, df_missing, city_name):
+    """
+    Plot weather data and missing data hours.
+
+    :param df_weather: DataFrame containing weather data.
+    :param df_missing: DataFrame containing missing data information.
+    :param city_name: Name of the city.
+    :return: None
+    """
     fig, ax1 = plt.subplots(figsize=(10, 3), dpi=150)
     ax2 = ax1.twinx()
 
-    ax2.axhline(y=3.5, alpha=0.5, color='blue', ls='--', lw=0.5)
-    ax2.bar(df_weather['date'], df_weather['precip_mm'], label='precip_mm', alpha=0.5)
-
-    ax1.axhline(y=8, alpha=0.5, color='grey', ls='-', lw=0.5)
-    ax1.bar(df_missing['date'], df_missing['hours'], label='#hours with missing data', alpha=0.5, colour='grey')
+    ax2.axhline(y=3.5, alpha=0.5, color='cornflowerblue', ls='--', lw=0.5)
+    ax2.bar(df_weather['date'], df_weather['precip_mm'], label='precip_mm', alpha=0.5, color='cornflowerblue')
+    ax2.bar(df_missing['date'], df_missing['hours'], label='#hours with missing data', alpha=0.3, color='grey')
 
     for i in ['temp_min', 'temp_max', 'temp_avg']:
-        ax1.plot(df_weather['date'], df_weather[i], label=i)
+        ax1.plot(df_weather['date'], df_weather[i], label=i, alpha=1 if i == 'temp_avg' else 0.5)
 
     ax1.set_xlabel('Date')
     ax1.set_ylabel('Temperature [°C]', color='g')
-    ax2.set_ylabel('Daily Precipitation [mm]', color='b')
+    ax2.set_ylabel('Daily Precipitation [mm] / Hours without data', color='cornflowerblue')
     ax1.xaxis.set_ticks(df_weather['date'][::2])
     ax1.set_xticklabels(df_weather['date'].dt.date[::2], rotation=75)
-    ax1.set_title('Weather in ' + city_name)
-    ax1.legend()
+    ax1.set_title('Weather and missing data in ' + city_name)
+    ax1.legend(loc='upper left')
+    ax2.legend(loc='upper right')
     plt.show()
