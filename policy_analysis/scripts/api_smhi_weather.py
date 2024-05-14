@@ -15,10 +15,10 @@ def get_available_stations(params, data_mid_lat, data_mid_lon):
     Get available stations within a radius of 30km from the data's midpoint
     that contain all specified parameters.
 
-    :param params: List of parameters.
-    :param data_mid_lat: Latitude of the data's midpoint.
-    :param data_mid_lon: Longitude of the data's midpoint.
-    :return: List of dictionaries containing information about available stations.
+    @param params: List of parameters.
+    @param data_mid_lat: Latitude of the data's midpoint.
+    @param data_mid_lon: Longitude of the data's midpoint.
+    @return: List of dictionaries containing information about available stations.
     """
     union_station = []
     for par in params:
@@ -46,10 +46,10 @@ def map_stations(stations, data_mid_lat, data_mid_lon):
     """
     Create a scattermapbox plot of stations.
 
-    :param stations: List of dictionaries containing station information.
-    :param data_mid_lat: Latitude of the data's midpoint.
-    :param data_mid_lon: Longitude of the data's midpoint.
-    :return: None
+    @param stations: List of dictionaries containing station information.
+    @param data_mid_lat: Latitude of the data's midpoint.
+    @param data_mid_lon: Longitude of the data's midpoint.
+    @return: None
     """
     fig = go.Figure()
 
@@ -76,11 +76,11 @@ def fetch_weather_data(station_key, params, start_date, end_date):
     """
     Fetch weather data from the API for the specified station and parameters within the specified date range.
 
-    :param station_key: Key of the weather station.
-    :param params: List of parameter IDs.
-    :param start_date: Start date of the date range (inclusive).
-    :param end_date: End date of the date range (inclusive).
-    :return: DataFrame containing weather data.
+    @param station_key: Key of the weather station.
+    @param params: List of parameter IDs.
+    @param start_date: Start date of the date range (inclusive).
+    @param end_date: End date of the date range (inclusive).
+    @return: DataFrame containing weather data.
     """
     date_regex = re.compile('^\d{4}-([0][1-9]|1[0-2])-([0][1-9]|[1-2]\d|3[01])$')
     weather_arr = []
@@ -112,10 +112,10 @@ def plot_weather(df_weather, df_missing, city_name):
     """
     Plot weather data and missing data hours.
 
-    :param df_weather: DataFrame containing weather data.
-    :param df_missing: DataFrame containing missing data information.
-    :param city_name: Name of the city.
-    :return: None
+    @param df_weather: DataFrame containing weather data.
+    @param df_missing: DataFrame containing missing data information.
+    @param city_name: Name of the city.
+    @return: None
     """
     fig, ax1 = plt.subplots(figsize=(10, 3), dpi=150)
     ax2 = ax1.twinx()
