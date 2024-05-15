@@ -8,10 +8,10 @@ from matplotlib import colors
 import matplotlib.cm as cm
 
 
-
 # =============================================================================
 # Dataset Overview
 # =============================================================================
+
 
 def vis_dataset_overview(df, before_start_date, after_end_date):
     """
@@ -78,21 +78,26 @@ def aggregate_and_describe(df_before, df_after, groupby_column, dim, aggregation
     @param ttest_log: bool, whether to apply log transform before t-test
     @return: pandas.io.formats.style.Styler, styled DataFrame
     """
-    agg_before = pd.DataFrame(df_before.groupby(groupby_column)[dim].agg(aggregation_function))
-    stats_before = pd.DataFrame(agg_before.describe()).rename(columns={dim: 'before'})
+    if aggregation_function is None:
+        agg_before = pd.DataFrame(df_before[dim])
+        agg_after = pd.DataFrame(df_after[dim])
+    else:
+        agg_before = pd.DataFrame(df_before.groupby(groupby_column)[dim].agg(aggregation_function))
+        agg_after = pd.DataFrame(df_after.groupby(groupby_column)[dim].agg(aggregation_function))
 
-    agg_after = pd.DataFrame(df_after.groupby(groupby_column)[dim].agg(aggregation_function))
+    stats_before = pd.DataFrame(agg_before.describe()).rename(columns={dim: 'before'})
     stats_after = pd.DataFrame(agg_after.describe()).rename(columns={dim: 'after'})
 
     if ttest:
         if ttest_log:
-            t_stat, p_val = stats.ttest_ind(np.log(agg_before[dim].dropna()), np.log(agg_after[dim].dropna()), equal_var=True)
+            t_stat, p_val = stats.ttest_ind(np.log(agg_before[dim].dropna()), np.log(agg_after[dim].dropna()),
+                                            equal_var=True)
         else:
             t_stat, p_val = stats.ttest_ind(agg_before[dim].dropna(), agg_after[dim].dropna(), equal_var=True)
         title += f'\nt_stat={t_stat:.4f} \n p_val={p_val:.4f}'
 
     stats_table = pd.concat([stats_before, stats_after], axis=1)
-    stats_table = stats_table.style.set_caption(title).format(precision=2).set_table_attributes(
+    stats_table = stats_table.style.set_caption(title).format(precision=4).set_table_attributes(
         "style='display:inline'")
 
     return stats_table
@@ -127,7 +132,8 @@ def histogram_lines(data_before, data_after, e, bins, use_log=False):
     return bin_centers_before, bin_centers_after, hist_before, hist_after
 
 
-def plot_pdf_day_mode(dims, log_arr, bins, weekdays_before, weekends_before, fri_before, weekdays_after, weekends_after, fri_after):
+def plot_pdf_day_mode(dims, log_arr, bins, weekdays_before, weekends_before, fri_before, weekdays_after, weekends_after,
+                      fri_after):
     """
     Plot probability density functions (PDFs) for weekdays, weekends, and Fridays
 
@@ -141,7 +147,7 @@ def plot_pdf_day_mode(dims, log_arr, bins, weekdays_before, weekends_before, fri
     @param weekends_after: DataFrame containing data for weekends after the change.
     @param fri_after: DataFrame containing data for Fridays after the change.
     """
-    fig, axes = plt.subplots(len(dims), 3, figsize=(13, 3*len(dims)))
+    fig, axes = plt.subplots(len(dims), 3, figsize=(13, 3 * len(dims)))
 
     for i, e in enumerate(dims):
         arr_bef = [weekdays_before, fri_before, weekends_before]
@@ -160,7 +166,7 @@ def plot_pdf_day_mode(dims, log_arr, bins, weekdays_before, weekends_before, fri
 
             if len(dims) == 1:
                 axes[j].plot(plot_weekdays_before_l, plot_weekdays_before[0], label='ant')
-                axes[j].plot(plot_weekdays_after_l, plot_weekdays_after[0], label='post', color='salmon', alpha=0.7)
+                axes[j].plot(plot_weekdays_after_l, plot_weekdays_after[0], label='post', alpha=0.7)
                 axes[j].set_xlabel(e)
                 axes[j].set_ylabel('Probability')
                 axes[j].legend()
@@ -169,7 +175,7 @@ def plot_pdf_day_mode(dims, log_arr, bins, weekdays_before, weekends_before, fri
                 axes[2].set_title('Weekends (Sat-Sun)')
             else:
                 axes[i][j].plot(plot_weekdays_before_l, plot_weekdays_before[0], label='ant')
-                axes[i][j].plot(plot_weekdays_after_l, plot_weekdays_after[0], label='post', color='salmon', alpha=0.7)
+                axes[i][j].plot(plot_weekdays_after_l, plot_weekdays_after[0], label='post', alpha=0.7)
                 axes[i][j].set_xlabel(e)
                 axes[i][j].set_ylabel('Probability')
                 axes[i][j].legend()
@@ -180,7 +186,8 @@ def plot_pdf_day_mode(dims, log_arr, bins, weekdays_before, weekends_before, fri
     plt.show()
 
 
-def plot_demand_pdf_throughout_weekdays(density, weekdays_before, weekends_before, fri_before, weekdays_after, weekends_after, fri_after):
+def plot_demand_pdf_throughout_weekdays(density, weekdays_before, weekends_before, fri_before, weekdays_after,
+                                        weekends_after, fri_after):
     """
 
     @param density: bool, whether to plot histogram (absolute) or PDF
@@ -202,7 +209,7 @@ def plot_demand_pdf_throughout_weekdays(density, weekdays_before, weekends_befor
         plot_xdays_after = np.histogram(arr_aft[i].o_time.dt.hour, 24, density=density)
 
         axes[i].plot(plot_xdays_before[1][:-1], plot_xdays_before[0], label='ant')
-        axes[i].plot(plot_xdays_after[1][:-1], plot_xdays_after[0], label='post', color='salmon')
+        axes[i].plot(plot_xdays_after[1][:-1], plot_xdays_after[0], label='post')
         axes[i].set_xlabel('Hour of the day')
         axes[i].set_ylabel('Probability (Trip)' if density else 'Number of Trips')
         axes[i].set_title(labels[i])
@@ -212,7 +219,8 @@ def plot_demand_pdf_throughout_weekdays(density, weekdays_before, weekends_befor
     plt.show()
 
 
-def throughout_weekdays_plot(dimensions, weekdays_before, fri_before, weekends_before, weekdays_after, fri_after, weekends_after):
+def throughout_weekdays_plot(dimensions, weekdays_before, fri_before, weekends_before, weekdays_after, fri_after,
+                             weekends_after):
     """
      Plots the mean and standard deviation of the given variable throughout the hours of the day
 
@@ -249,11 +257,11 @@ def throughout_weekdays_plot(dimensions, weekdays_before, fri_before, weekends_b
 
             ax.plot(mean_bef.reset_index().hours, mean_bef, label='ant')
             ax.fill_between(mean_bef.reset_index().hours, mean_bef - (0.5 * std_bef), mean_bef + (0.5 * std_bef),
-                             alpha=0.2)
+                            alpha=0.2)
 
-            ax.plot(mean_aft.reset_index().hours, mean_aft, color='salmon', label='post')
+            ax.plot(mean_aft.reset_index().hours, mean_aft, label='post')
             ax.fill_between(mean_aft.reset_index().hours, mean_aft - (0.5 * std_aft), mean_aft + (0.5 * std_aft),
-                             alpha=0.2, color='salmon')
+                            alpha=0.2)
 
             ax.legend()
             ax.set_xlabel('Mean ' + dim + ' per hour of day')
@@ -343,6 +351,52 @@ def plot_scooter_efficiency_histogram(data_before, data_after, types):
     plt.show()
 
 
+def plot_mean_per_scooter_histogram(data_before, data_after, dims, types):
+    """
+    Creates PDFs of mean distance, time, and speed per scooter
+
+    @param data_before: DataFrame containing data before the change.
+    @param data_after: DataFrame containing data after the change.
+    @param dims: array, list of dimensions
+    @param types: array, list of operator types to filter the data
+    @return:
+    """
+    fig, axes = plt.subplots(1, len(dims), figsize=(18, 4))
+
+    colors = cm.Set2(np.linspace(0, 1, 8))
+
+    for i, e in enumerate(dims):
+        for j, t in enumerate(types):
+            color = colors[j % len(colors)] if len(types) > 1 else None
+
+            # average distance, time and speed per scooter
+            plot_dim_before = np.histogram(data_before[data_before['type'].isin(t)].groupby(['id'])[e].mean(), 50,
+                                           density=True)
+            plot_dim_after = np.histogram(data_after[data_after['type'].isin(t)].groupby(['id'])[e].mean(), 50,
+                                          density=True)
+
+            plot_dim_before_l = (plot_dim_before[1][1:] + plot_dim_before[1][:-1]) / 2
+            plot_dim_after_l = (plot_dim_after[1][1:] + plot_dim_after[1][:-1]) / 2
+
+            axes[i].plot(plot_dim_before_l, plot_dim_before[0], label=f'{t} - ant', color=color,
+                         alpha=0.8 if len(types) > 1 else 1)
+            axes[i].plot(plot_dim_after_l, plot_dim_after[0], label=f'{t} - post', color=color,
+                         alpha=0.4 if len(types) > 1 else 1)
+            axes[i].set_xlabel(e + ' by scooter')
+            axes[i].set_ylabel('Probability')
+            # axes[i].set_text(2, 16, 'Second Title', fontsize=12, color='red', ha='center')
+
+            if len(types) == 1:
+                mean_before = data_before[data_before['type'].isin(t)][e].mean()
+                mean_after = data_after[data_after['type'].isin(t)][e].mean()
+                axes[i].text(1, 0.5, f'Mean (ant): {mean_before:.2f}' + '\n' + f'Mean (post): {mean_after:.2f}',
+                             horizontalalignment='right', verticalalignment='center', transform=axes[i].transAxes)
+            axes[i].legend()
+
+    plt.tight_layout()
+    plt.show()
+
+
 # =============================================================================
 # T-Tests
 # =============================================================================
@@ -362,7 +416,8 @@ def reg_ttest(dimensions, log_arr, data_before, data_after):
 
     for c, i in enumerate(dimensions):
         if log_arr[c] == 1:
-            t_stat, p_val = stats.ttest_ind(np.log(data_before[i].dropna()), np.log(data_after[i].dropna()), equal_var=True)
+            t_stat, p_val = stats.ttest_ind(np.log(data_before[i].dropna()), np.log(data_after[i].dropna()),
+                                            equal_var=True)
         else:
             t_stat, p_val = stats.ttest_ind(data_before[i].dropna(), data_after[i].dropna(), equal_var=True)
 
@@ -377,7 +432,8 @@ def reg_ttest(dimensions, log_arr, data_before, data_after):
     return df_ttest
 
 
-def ttest_day_mode(dims, arr_log, weekdays_before, weekends_before, fri_before, weekdays_after, weekends_after, fri_after):
+def ttest_day_mode(dims, arr_log, weekdays_before, weekends_before, fri_before, weekdays_after, weekends_after,
+                   fri_after):
     """
     Performs t-tests for weekdays, weekends, and Fridays before and after changes
 
@@ -419,9 +475,9 @@ def ttest_day_mode(dims, arr_log, weekdays_before, weekends_before, fri_before, 
             arr[i].loc['std_post', j] = data_after.std()
 
     # Display styled DataFrames
-    scooter_stats_styler = df_ttest.style.set_table_attributes("style='display:inline'").set_caption('Weekdays')
-    scooter_fri_stats_styler = df_ttest_fri.style.set_table_attributes("style='display:inline'").set_caption('Fridays')
-    scooter_WE_stats_styler = df_ttest_WE.style.set_table_attributes("style='display:inline'").set_caption('Weekends')
+    scooter_stats_styler = df_ttest.style.set_table_attributes("style='display:inline'").set_caption('Weekdays').format(precision=4)
+    scooter_fri_stats_styler = df_ttest_fri.style.set_table_attributes("style='display:inline'").set_caption('Fridays').format(precision=4)
+    scooter_WE_stats_styler = df_ttest_WE.style.set_table_attributes("style='display:inline'").set_caption('Weekends').format(precision=4)
 
     display_html(scooter_stats_styler._repr_html_() + scooter_fri_stats_styler._repr_html_() +
                  scooter_WE_stats_styler._repr_html_(), raw=True)
@@ -455,7 +511,7 @@ def paired_ttest_az(dimensions, zone_aggr):
     df_ttest.loc['std_ant'] = i1[dimensions].std()
     df_ttest.loc['std_post'] = i2[dimensions].std()
 
-    return df_ttest.style.set_caption('Paired T-Test between Zones').format(precision=2)
+    return df_ttest.style.set_caption('Paired T-Test between Zones').format(precision=4)
 
 
 # =============================================================================
@@ -516,5 +572,3 @@ def plot_differences_az(dimensions, zone_aggr, unit):
         ax.axis('off')
 
     return fig, axes
-
-
