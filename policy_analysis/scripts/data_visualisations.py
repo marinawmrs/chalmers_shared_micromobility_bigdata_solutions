@@ -397,6 +397,114 @@ def plot_mean_per_scooter_histogram(data_before, data_after, dims, types):
     plt.show()
 
 
+def figure_modal_subs(series_arr):
+    """
+    Creates stacked histogram bar-plot of modal substitution rate, per zone and trip level
+    @param series_arr: array, with subarrays for trip-level and zone-level
+    @return:
+    """
+    arr = ['before', 'after']
+    modes = ['P_walk', 'P_car', 'P_taxi', 'P_bike', 'P_PT']
+    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+
+    for li, level in enumerate(['trip', 'zone']):
+        series = series_arr[li]
+        subs_mode = pd.DataFrame()
+
+        if level == 'zone':
+            modes = [i + '_avg' for i in modes]
+
+        for i, s in enumerate(series):
+            subs_mode[arr[i]] = s[modes].idxmax(axis=1).value_counts(normalize=True)
+
+        subs_mode = subs_mode.fillna(0)
+        bottom = [0, 0]
+        pad = [-1, -1]
+
+        for row in subs_mode.iterrows():
+            ax[li].bar(['before', 'after'], [row[1].before, row[1].after], label=row[0], bottom=bottom)
+
+            for idx, val in enumerate([row[1].before, row[1].after]):
+                if val < 0.01 and val > 0:
+                    pad[idx] += 1
+                y_pos = val / 2 + bottom[idx] + pad[idx] * 0.02
+                ax[li].text(idx, y_pos, f'{val:.4f}', ha='center')
+
+            bottom[0] += row[1].before
+            bottom[1] += row[1].after
+
+        ax[li].set_title(f'Likelihood of substituted mode, {level}-level')
+        ax[li].set_xlabel('Interval')
+        ax[li].set_ylabel('Rate')
+        ax[li].legend()
+
+    plt.tight_layout()
+    plt.show()
+
+
+def get_intercept(x1, y1, x2, y2):
+    """
+    Helper Function for Balance Points, computes 0-intercept
+
+    @param x1: float
+    @param y1: float
+    @param x2: float
+    @param y2: float
+    @return:
+    """
+    k = (y1 - y2) / (x1 - x2)
+    b = y1 - k * x1
+    intercept = -b / k
+    return intercept
+
+
+def plot_balance_points(series):
+    """
+    Generates balance point plots
+
+    @param series: array, before and after pandas dataframe
+    @return:
+    """
+    color_list = plt.cm.tab10.colors
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+
+    for j, s in enumerate(series):
+        s['distance_round'] = np.floor(s.escooter_distance / 1000)
+        for x in range(0, 10):
+            sx = s[s.distance_round == x]
+            mean_l = []
+            for i in np.linspace(0, 60, 11):
+                sx['GHG2'] = sx.car_distance / 1000 * 160.7 * (
+                            sx.P_car + sx.P_taxi) + sx.transit_transitdistance / 1000 * 16.04 * sx.P_PT + sx.escooter_distance / 1000 * 37.0 * sx.P_bike - sx.escooter_distance / 1000 * i
+                mean_l.append(sx.GHG2.mean())
+            zero_point = round(get_intercept(0, mean_l[0], 60, mean_l[-1]), 2)
+            ax.plot(np.linspace(0, 60, 11), mean_l, label=str(x) + '-' + str(x + 1) + ' km', color=color_list[j],
+                    alpha=0.2 + 0.075 * x, linestyle='dashed')
+
+        mean_l = []
+        for i in np.linspace(0, 60, 11):
+            s['GHG2'] = s.car_distance / 1000 * 160.7 * (
+                        s.P_car + s.P_taxi) + s.transit_transitdistance / 1000 * 16.04 * s.P_PT + s.escooter_distance / 1000 * 37.0 * s.P_bike - s.escooter_distance / 1000 * i
+            mean_l.append(s.GHG2.mean())
+        zero_point = round(get_intercept(0, mean_l[0], 60, mean_l[-1]), 2)
+
+        ax.plot(np.linspace(0, 60, 11), mean_l, label='Average', color=color_list[j])
+
+        ax.plot(zero_point, 0, marker='o', markersize=6, color=color_list[j])
+        print('Balance point in Timeframe', j + 1, ':', zero_point)
+
+    ax.set_title('Balance Points')
+    ax.set_xlabel('Emission factor of SES (CO2 g/km)')
+    ax.set_ylabel('GHG Reduction (CO2/g)')
+    ax.legend()
+    plt.grid(True, alpha=0.2)
+    plt.tight_layout()
+    plt.show()
+
+    plt.show()
+
+
 # =============================================================================
 # T-Tests
 # =============================================================================
@@ -545,6 +653,51 @@ def plot_before_after_az(dimensions, zone_aggr, unit):
     return fig, axes
 
 
+def violin_zone_level(ax, zone_var, unit, *series):
+    """
+    Creates Violin Plot for zone maps
+
+    @param ax: plotly axis
+    @param zone_var: string, current column
+    @param unit: string, unti for variable
+    @param series: array of GeoDataFrames
+    @return:
+    """
+
+    for i, s in enumerate(series):
+        zone = s[zone_var].dropna()
+        r = ax.violinplot(dataset=[zone], positions=[i], showmeans=True, showmedians=True, showextrema=False, widths=0.7,
+                      points=200, bw_method='scott', vert=True)
+        r['cmeans'].set_linestyle('dotted')
+
+        violin_annotation(ax, i, s, zone_var)
+
+    ax.set_title(zone_var + ', zone-level')
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels(['before', 'after'])
+    ax.set_ylabel('{}'.format(zone_var) + ' ({}]'.format(unit))
+
+def violin_annotation(ax, i, s, variable):
+    """
+    Appends annotations to violin plot
+
+    @param ax: plotly axis
+    @param i: int, current series
+    @param s: GeoDataFrame, current series
+    @param variable: string, current column
+    @return:
+    """
+    pos_impact = (s[variable] > 0).sum() / len(s[variable].dropna())
+    mean_val = s[variable].mean()
+    median_val = s[variable].median()
+
+    ax.annotate("Positive impact: {:.2%}".format(pos_impact), xy=(i, 1), xycoords='axes fraction', xytext=(0, 10),
+                textcoords='offset points', ha='center', va='bottom', fontsize=8, color='blue' if i == 0 else 'orange')
+
+    ax.annotate("Mean: {:.2f}".format(mean_val) + "\nMedian: {:.2f}".format(median_val), xy=(i, 0), xycoords='axes fraction', xytext=(0, -15),
+                textcoords='offset points', ha='center', fontsize=8, color='blue' if i == 0 else 'orange')
+
+
 def plot_differences_az(dimensions, zone_aggr, unit):
     """
     Plot the differences between post-policy and pre-policy values for the given dimensions across analysis zones.
@@ -555,7 +708,7 @@ def plot_differences_az(dimensions, zone_aggr, unit):
     @return: matplotlib.figure.Figure, matplotlib.axes._subplots.AxesSubplot
     """
 
-    fig, axes = plt.subplots(len(dimensions), 1, figsize=(13, 5 * len(dimensions)))
+    fig, axes = plt.subplots(len(dimensions), 2, figsize=(13, 5 * len(dimensions)))
 
     for j, dim in enumerate(dimensions):
         # Calculate difference for each zone
@@ -566,9 +719,11 @@ def plot_differences_az(dimensions, zone_aggr, unit):
 
         max_scale = max(np.abs(cell_diff[dim].min()), np.abs(cell_diff[dim].max()))
         divnorm = colors.TwoSlopeNorm(vmin=-max_scale, vcenter=0, vmax=max_scale)
-        ax = cell_diff.plot(ax=axes[j], column=dim, legend=True, alpha=0.7, cmap='RdYlGn', norm=divnorm)
-        ctx.add_basemap(ax=axes[j], crs=cell_diff.crs, source=ctx.providers.CartoDB.Positron, alpha=0.5)
-        axes[j].set_title(dim + ' - Δ(Post-Pre) in ' + unit)
+        ax = cell_diff.plot(ax=axes[j][0], column=dim, legend=True, alpha=0.7, cmap='RdYlGn', norm=divnorm)
+        ctx.add_basemap(ax=axes[j][0], crs=cell_diff.crs, source=ctx.providers.CartoDB.Positron, alpha=0.5)
+        axes[j][0].set_title(dim + ' - Δ(Post-Pre) in ' + unit)
         ax.axis('off')
+
+        violin_zone_level(axes[j][1],dim, unit, zone_aggr[0], zone_aggr[1])
 
     return fig, axes
