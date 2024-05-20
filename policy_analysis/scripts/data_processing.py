@@ -278,17 +278,27 @@ def calculate_utility_car_taxi(mode, car_time, car_distance, mc_lc, mc_male, mc_
 
 
 def create_zones(df, grid_choice, grid_size, city_coordinates, min_data, base):
-    # turn into geodataframe
+    """
+    Creates zones based on the selected grid choice
+
+    @param df: DataFrame
+    @param grid_choice: string, choice of grid shape ('square', 'hexagon', or 'shapefile')
+    @param grid_size: float or str, size of the grid or path to shapefile
+    @param city_coordinates: tuple, coordinates of the city (latitude, longitude)
+    @param min_data: int, minimum data threshold
+    @param base: string, base name for columns (e.g., 'o' for origin or 'd' for destination)
+
+    @return: GeoDataFrame with aggregated zones
+    """
     gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df[base + '_lng'], df[base + '_lat']))
-    # gdf = gdf.set_crs(4326)
 
     if grid_choice == 'square':
         zone_aggr = create_square_grid(gdf, grid_size, city_coordinates, min_data)
     elif grid_choice == 'hexagon':
         zone_aggr = create_hexagonal_grid(gdf, grid_size, base, min_data)
     elif grid_choice == 'shapefile':
-        # path == ?
-        zone_aggr = None
+        # grid_size is being used as proxy for path to shapefile
+        zone_aggr = create_shapefile_grid(gdf, grid_size, min_data)
     else:
         print('Invalid grid shape')
         return None
@@ -299,6 +309,16 @@ def create_zones(df, grid_choice, grid_size, city_coordinates, min_data, base):
 
 
 def create_square_grid(gdf, grid_size, city_coordinates, min_data):
+    """
+    Creates square grid cells based on specified cell size and aggregates data within each cell
+
+    @param gdf: GeoDataFrame, input data containing geometry information
+    @param grid_size: float, size of the grid cell
+    @param city_coordinates: tuple, coordinates of the city (ymax, ymin, xmax, xmin)
+    @param min_data: int, minimum data threshold for aggregation
+
+    @return: GeoDataFrame with aggregated zones
+    """
     ymax, ymin, xmax, xmin = city_coordinates
     cell_size = grid_size
     cell_sizex = cell_size * 2
@@ -325,6 +345,16 @@ def create_square_grid(gdf, grid_size, city_coordinates, min_data):
 
 
 def create_hexagonal_grid(gdf, res, base, min_data):
+    """
+    Creates hexagonal grid cells based on specified resolution and aggregates data within each cell
+
+    @param gdf: GeoDataFrame, input data containing geometry information
+    @param res: int, resolution of the hexagonal grid
+    @param base: string, prefix for latitude and longitude columns
+    @param min_data: int, minimum data threshold for aggregation
+
+    @return: GeoDataFrame with aggregated zones
+    """
     merged = gdf.dropna().h3.geo_to_h3(res, lat_col=base + '_lat', lng_col=base + '_lng')
     rescol = 'h3_0' + str(res) if res < 10 else 'h3_' + str(res)
 
@@ -336,7 +366,38 @@ def create_hexagonal_grid(gdf, res, base, min_data):
     return az_aggr .set_crs(epsg="4326", inplace=True, allow_override=True)
 
 
+def create_shapefile_grid(gdf, path, min_data):
+    """
+    Creates grid cells based on a shapefile and aggregates data within each cell
+
+    @param gdf: GeoDataFrame, input data containing geometry information
+    @param path: string, path to the shapefile
+    @param min_data: int, minimum data threshold for aggregation
+
+    @return: GeoDataFrame with aggregated zones
+    """
+    shpfile = gpd.read_file(path)
+    shpfile = shpfile.to_crs(epsg=4326)
+
+    merged = gpd.sjoin(gdf, shpfile, how='left')
+    merged = merged.rename(columns={'id_left': 'id'})
+    az_aggr = aggregate_zonewise(merged, min_data)
+
+    for j in az_aggr.columns:
+        shpfile.loc[az_aggr.index, j] = az_aggr[j].values
+
+    shpfile.set_crs(epsg="4326", inplace=True)
+    return shpfile
+
+
 def aggregate_zonewise(merged, min_data):
+    """
+    Aggregates variables in different dimensions within each zone based on the merged DataFrame
+
+    @param merged: DataFrame containing merged data
+    @param min_data: Minimum number of trips required for a zone to be considered
+    @return: GeoDataFrame containing zone-wise attributes
+    """
     print('Aggregating zones...')
     az_aggr = pd.DataFrame()
     az_aggr['demand_total'] = merged.groupby('index_right').count()[['id']]

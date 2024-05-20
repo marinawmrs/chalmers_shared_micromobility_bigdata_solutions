@@ -1,11 +1,11 @@
+import contextily as ctx
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from IPython.core.display import display_html
-from scipy import stats
-import contextily as ctx
 from matplotlib import colors
-import matplotlib.cm as cm
+from scipy import stats
 
 
 # =============================================================================
@@ -476,7 +476,7 @@ def plot_balance_points(series):
             mean_l = []
             for i in np.linspace(0, 60, 11):
                 sx['GHG2'] = sx.car_distance / 1000 * 160.7 * (
-                            sx.P_car + sx.P_taxi) + sx.transit_transitdistance / 1000 * 16.04 * sx.P_PT + sx.escooter_distance / 1000 * 37.0 * sx.P_bike - sx.escooter_distance / 1000 * i
+                        sx.P_car + sx.P_taxi) + sx.transit_transitdistance / 1000 * 16.04 * sx.P_PT + sx.escooter_distance / 1000 * 37.0 * sx.P_bike - sx.escooter_distance / 1000 * i
                 mean_l.append(sx.GHG2.mean())
             zero_point = round(get_intercept(0, mean_l[0], 60, mean_l[-1]), 2)
             ax.plot(np.linspace(0, 60, 11), mean_l, label=str(x) + '-' + str(x + 1) + ' km', color=color_list[j],
@@ -485,7 +485,7 @@ def plot_balance_points(series):
         mean_l = []
         for i in np.linspace(0, 60, 11):
             s['GHG2'] = s.car_distance / 1000 * 160.7 * (
-                        s.P_car + s.P_taxi) + s.transit_transitdistance / 1000 * 16.04 * s.P_PT + s.escooter_distance / 1000 * 37.0 * s.P_bike - s.escooter_distance / 1000 * i
+                    s.P_car + s.P_taxi) + s.transit_transitdistance / 1000 * 16.04 * s.P_PT + s.escooter_distance / 1000 * 37.0 * s.P_bike - s.escooter_distance / 1000 * i
             mean_l.append(s.GHG2.mean())
         zero_point = round(get_intercept(0, mean_l[0], 60, mean_l[-1]), 2)
 
@@ -583,9 +583,12 @@ def ttest_day_mode(dims, arr_log, weekdays_before, weekends_before, fri_before, 
             arr[i].loc['std_post', j] = data_after.std()
 
     # Display styled DataFrames
-    scooter_stats_styler = df_ttest.style.set_table_attributes("style='display:inline'").set_caption('Weekdays').format(precision=4)
-    scooter_fri_stats_styler = df_ttest_fri.style.set_table_attributes("style='display:inline'").set_caption('Fridays').format(precision=4)
-    scooter_WE_stats_styler = df_ttest_WE.style.set_table_attributes("style='display:inline'").set_caption('Weekends').format(precision=4)
+    scooter_stats_styler = df_ttest.style.set_table_attributes("style='display:inline'").set_caption('Weekdays').format(
+        precision=4)
+    scooter_fri_stats_styler = df_ttest_fri.style.set_table_attributes("style='display:inline'").set_caption(
+        'Fridays').format(precision=4)
+    scooter_WE_stats_styler = df_ttest_WE.style.set_table_attributes("style='display:inline'").set_caption(
+        'Weekends').format(precision=4)
 
     display_html(scooter_stats_styler._repr_html_() + scooter_fri_stats_styler._repr_html_() +
                  scooter_WE_stats_styler._repr_html_(), raw=True)
@@ -666,16 +669,19 @@ def violin_zone_level(ax, zone_var, unit, *series):
 
     for i, s in enumerate(series):
         zone = s[zone_var].dropna()
-        r = ax.violinplot(dataset=[zone], positions=[i], showmeans=True, showmedians=True, showextrema=False, widths=0.7,
-                      points=200, bw_method='scott', vert=True)
-        r['cmeans'].set_linestyle('dotted')
+        r = ax.violinplot(dataset=[zone], positions=[i], showmeans=True, showmedians=True, showextrema=False,
+                          widths=0.7,
+                          points=200, bw_method='scott', vert=True)
+        r['cmedians'].set_linestyle('dotted')
+        r['cmedians'].set_edgecolor('grey')
 
         violin_annotation(ax, i, s, zone_var)
 
     ax.set_title(zone_var + ', zone-level')
     ax.set_xticks([0, 1])
     ax.set_xticklabels(['before', 'after'])
-    ax.set_ylabel('{}'.format(zone_var) + ' ({}]'.format(unit))
+    ax.set_ylabel('{}'.format(zone_var) + ' ({})'.format(unit))
+
 
 def violin_annotation(ax, i, s, variable):
     """
@@ -691,10 +697,12 @@ def violin_annotation(ax, i, s, variable):
     mean_val = s[variable].mean()
     median_val = s[variable].median()
 
-    ax.annotate("Positive impact: {:.2%}".format(pos_impact), xy=(i, 1), xycoords='axes fraction', xytext=(0, 10),
-                textcoords='offset points', ha='center', va='bottom', fontsize=8, color='blue' if i == 0 else 'orange')
+    if any(substring in variable for substring in ['reduced_time', 'GHG']):
+        ax.annotate("Positive impact: {:.2%}".format(pos_impact), xy=(i, 1), xycoords='axes fraction', xytext=(0, 10),
+                    textcoords='offset points', ha='center', va='bottom', fontsize=8, color='blue' if i == 0 else 'orange')
 
-    ax.annotate("Mean: {:.2f}".format(mean_val) + "\nMedian: {:.2f}".format(median_val), xy=(i, 0), xycoords='axes fraction', xytext=(0, -15),
+    ax.annotate("Mean: {:.2f}".format(mean_val) + "\nMedian: {:.2f}".format(median_val), xy=(i, 0),
+                xycoords='axes fraction', xytext=(0, -15),
                 textcoords='offset points', ha='center', fontsize=8, color='blue' if i == 0 else 'orange')
 
 
@@ -724,6 +732,6 @@ def plot_differences_az(dimensions, zone_aggr, unit):
         axes[j][0].set_title(dim + ' - Δ(Post-Pre) in ' + unit)
         ax.axis('off')
 
-        violin_zone_level(axes[j][1],dim, unit, zone_aggr[0], zone_aggr[1])
+        violin_zone_level(axes[j][1], dim, unit, zone_aggr[0], zone_aggr[1])
 
     return fig, axes
