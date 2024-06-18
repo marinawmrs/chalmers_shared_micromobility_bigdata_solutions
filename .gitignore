@@ -1,7 +1,7 @@
 /policy_analysis/data/data_raw.csv
 /policy_analysis/.ipynb_checkpoints/
 
-.idea/
+.idea/*
 
 # dotenv
 .env
